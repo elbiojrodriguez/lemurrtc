@@ -24,7 +24,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
+    const socket = io('https://lemurrtc.onrender.com');
 
     const remoteVideo = document.getElementById('remoteVideo');
     let peerConnection;
