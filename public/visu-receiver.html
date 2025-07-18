@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Dono recebe câmera do visitante</title>
+  <style>
+    body {
+      background: #0e0e0e;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    video {
+      width: 80%;
+      margin-top: 20px;
+      border: 2px solid #00ffaa;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📺 Recebendo vídeo do visitante</h1>
+  <video id="remoteVideo" autoplay playsinline></video>
+
+  <script src="https://lemurrtc.onrender.com/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('https://lemurrtc.onrender.com');
+    const remoteVideo = document.getElementById('remoteVideo');
+    let peerConnection;
+
+    const config = {
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    };
+
+    socket.on('visu-offer', offer => {
+      peerConnection = new RTCPeerConnection(config);
+
+      peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+          socket.emit('visu-ice', event.candidate);
+        }
+      };
+
+      peerConnection.ontrack = event => {
+        remoteVideo.srcObject = event.streams[0];
+      };
+
+      peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+        .then(() => peerConnection.createAnswer())
+        .then(answer => {
+          return peerConnection.setLocalDescription(answer);
+        })
+        .then(() => {
+          socket.emit('visu-answer', peerConnection.localDescription);
+        });
+    });
+
+    socket.on('visu-ice', candidate => {
+      if (peerConnection) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    });
+  </script>
+</body>
+</html>
