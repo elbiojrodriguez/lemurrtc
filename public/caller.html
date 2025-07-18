@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Visitante (Caller)</title>
+  <style>
+    body { background: #111; color: white; text-align: center; font-family: sans-serif; }
+    video { width: 80%; border: 2px solid #ffa500; border-radius: 8px; margin-top: 20px; }
+    input, button { padding: 10px; margin-top: 15px; border-radius: 6px; font-size: 16px; }
+    button { background-color: #ffa500; color: black; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>📤 Visitante inicia chamada</h1>
+  <video id="localVideo" autoplay muted playsinline></video>
+  <p>Seu ID: <span id="myId"></span></p>
+  <input type="text" id="targetId" placeholder="ID do dono">
+  <button id="chamarBtn">Chamar</button>
+
+  <script src="https://lemurrtc.onrender.com/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('https://lemurrtc.onrender.com');
+    const myId = crypto.randomUUID();
+    document.getElementById('myId').textContent = myId;
+
+    socket.emit('register', myId);
+
+    const localVideo = document.getElementById('localVideo');
+    const chamarBtn = document.getElementById('chamarBtn');
+    const targetInput = document.getElementById('targetId');
+
+    let localStream;
+    let peer;
+
+    chamarBtn.onclick = () => {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+          localVideo.srcObject = stream;
+          localStream = stream;
+
+          peer = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+
+          stream.getTracks().forEach(track => peer.addTrack(track, stream));
+
+          peer.onicecandidate = event => {
+            if (event.candidate) {
+              socket.emit('ice-candidate', { to: targetInput.value, candidate: event.candidate });
+            }
+          };
+
+          peer.createOffer()
+            .then(offer => peer.setLocalDescription(offer))
+            .then(() => {
+              socket.emit('call', { to: targetInput.value, offer: peer.localDescription });
+            });
+        });
+    };
+
+    socket.on('acceptAnswer', data => {
+      peer.setRemoteDescription(new RTCSessionDescription(data.answer));
+    });
+
+    socket.on('ice-candidate', candidate => {
+      if (peer) peer.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+  </script>
+</body>
+</html>
