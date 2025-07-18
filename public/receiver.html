@@ -6,13 +6,16 @@
   <style>
     body { background: #121212; color: white; text-align: center; font-family: sans-serif; }
     video { width: 80%; border: 2px solid #00ffaa; border-radius: 8px; margin-top: 20px; }
+    #myCameraPreview { width: 30%; border: 2px solid #444; border-radius: 6px; margin-top: 15px; }
     button { padding: 10px 20px; margin-top: 10px; background-color: #00ffaa; border: none; border-radius: 6px; font-size: 16px; color: black; cursor: pointer; }
   </style>
 </head>
 <body>
   <h1>📥 Dono recebendo chamada</h1>
   <video id="remoteVideo" autoplay playsinline></video>
+  <video id="myCameraPreview" autoplay muted playsinline></video>
   <p>Seu ID: <span id="myId"></span></p>
+  <button onclick="abrirMinhaCamera()">Mostrar minha câmera</button>
   <button id="aceitarBtn" style="display:none;">Aceitar chamada</button>
 
   <script src="https://lemurrtc.onrender.com/socket.io/socket.io.js"></script>
@@ -58,6 +61,16 @@
     socket.on('ice-candidate', candidate => {
       if (peer) peer.addIceCandidate(new RTCIceCandidate(candidate));
     });
+
+    function abrirMinhaCamera() {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(stream => {
+          document.getElementById('myCameraPreview').srcObject = stream;
+        })
+        .catch(err => {
+          console.error('Erro ao abrir câmera local:', err);
+        });
+    }
   </script>
 </body>
 </html>
