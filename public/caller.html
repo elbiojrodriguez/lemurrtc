@@ -6,6 +6,7 @@
   <style>
     body { background: #111; color: white; text-align: center; font-family: sans-serif; }
     video { width: 80%; border: 2px solid #ffa500; border-radius: 8px; margin-top: 20px; }
+    #myCameraPreview { width: 30%; border: 2px solid #444; border-radius: 6px; margin-top: 10px; }
     input, button { padding: 10px; margin-top: 15px; border-radius: 6px; font-size: 16px; }
     button { background-color: #ffa500; color: black; border: none; cursor: pointer; }
   </style>
@@ -13,8 +14,10 @@
 <body>
   <h1>📤 Visitante inicia chamada</h1>
   <video id="localVideo" autoplay muted playsinline></video>
+  <video id="myCameraPreview" autoplay muted playsinline></video>
   <p>Seu ID: <span id="myId"></span></p>
   <input type="text" id="targetId" placeholder="ID do dono">
+  <button onclick="abrirMinhaCamera()">Mostrar minha câmera</button>
   <button id="chamarBtn">Chamar</button>
 
   <script src="https://lemurrtc.onrender.com/socket.io/socket.io.js"></script>
@@ -22,15 +25,25 @@
     const socket = io('https://lemurrtc.onrender.com');
     const myId = crypto.randomUUID();
     document.getElementById('myId').textContent = myId;
-
     socket.emit('register', myId);
 
     const localVideo = document.getElementById('localVideo');
+    const previewVideo = document.getElementById('myCameraPreview');
     const chamarBtn = document.getElementById('chamarBtn');
     const targetInput = document.getElementById('targetId');
 
     let localStream;
     let peer;
+
+    function abrirMinhaCamera() {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(stream => {
+          previewVideo.srcObject = stream;
+        })
+        .catch(err => {
+          console.error('Erro ao abrir câmera local:', err);
+        });
+    }
 
     chamarBtn.onclick = () => {
       navigator.mediaDevices.getUserMedia({ video: true, audio: true })
@@ -39,7 +52,6 @@
           localStream = stream;
 
           peer = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-
           stream.getTracks().forEach(track => peer.addTrack(track, stream));
 
           peer.onicecandidate = event => {
