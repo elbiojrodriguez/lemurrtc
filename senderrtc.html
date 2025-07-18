@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Turbo Sender</title>
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    video {
+      width: 80%;
+      margin-top: 20px;
+      border: 2px solid #00ffcc;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📤 Turbo Sender</h1>
+  <video id="localVideo" autoplay muted playsinline></video>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const localVideo = document.getElementById('localVideo');
+    let localStream;
+    let peerConnection;
+
+    const config = {
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    };
+
+    // 1. Captura da câmera
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(stream => {
+        localVideo.srcObject = stream;
+        localStream = stream;
+
+        // 2. Cria conexão peer
+        peerConnection = new RTCPeerConnection(config);
+
+        // 3. Adiciona trilhas de vídeo
+        stream.getTracks().forEach(track => {
+          peerConnection.addTrack(track, stream);
+        });
+
+        // 4. Envia candidatos ICE
+        peerConnection.onicecandidate = event => {
+          if (event.candidate) {
+            socket.emit('ice-candidate', event.candidate);
+          }
+        };
+
+        // 5. Cria oferta e envia via socket
+        peerConnection.createOffer()
+          .then(offer => {
+            return peerConnection.setLocalDescription(offer);
+          })
+          .then(() => {
+            socket.emit('webrtc-offer', peerConnection.localDescription);
+          });
+      })
+      .catch(error => {
+        console.error('Erro ao acessar câmera:', error);
+      });
+
+    // 6. Recebe resposta do receiver
+    socket.on('webrtc-answer', answer => {
+      peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    // 7. Recebe candidatos ICE do receiver
+    socket.on('ice-candidate', candidate => {
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+  </script>
+</body>
+</html>
