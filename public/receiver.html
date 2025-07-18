@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Dono (Receiver)</title>
+  <style>
+    body { background: #121212; color: white; text-align: center; font-family: sans-serif; }
+    video { width: 80%; border: 2px solid #00ffaa; border-radius: 8px; margin-top: 20px; }
+    button { padding: 10px 20px; margin-top: 10px; background-color: #00ffaa; border: none; border-radius: 6px; font-size: 16px; color: black; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>📥 Dono recebendo chamada</h1>
+  <video id="remoteVideo" autoplay playsinline></video>
+  <p>Seu ID: <span id="myId"></span></p>
+  <button id="aceitarBtn" style="display:none;">Aceitar chamada</button>
+
+  <script src="https://lemurrtc.onrender.com/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('https://lemurrtc.onrender.com');
+    const myId = crypto.randomUUID();
+    document.getElementById('myId').textContent = myId;
+    socket.emit('register', myId);
+
+    const remoteVideo = document.getElementById('remoteVideo');
+    const aceitarBtn = document.getElementById('aceitarBtn');
+    let peer;
+    let callerId;
+    let offer;
+
+    socket.on('incomingCall', data => {
+      callerId = data.from;
+      offer = data.offer;
+      aceitarBtn.style.display = 'inline-block';
+    });
+
+    aceitarBtn.onclick = () => {
+      peer = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+
+      peer.ontrack = event => {
+        remoteVideo.srcObject = event.streams[0];
+      };
+
+      peer.onicecandidate = event => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', { to: callerId, candidate: event.candidate });
+        }
+      };
+
+      peer.setRemoteDescription(new RTCSessionDescription(offer))
+        .then(() => peer.createAnswer())
+        .then(answer => peer.setLocalDescription(answer))
+        .then(() => {
+          socket.emit('answer', { to: callerId, answer: peer.localDescription });
+        });
+    };
+
+    socket.on('ice-candidate', candidate => {
+      if (peer) peer.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+  </script>
+</body>
+</html>
