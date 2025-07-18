@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Visitante envia vídeo</title>
+  <style>
+    body {
+      background: #111;
+      color: white;
+      text-align: center;
+      font-family: sans-serif;
+    }
+    video {
+      width: 80%;
+      margin-top: 20px;
+      border: 2px solid #ffaf00;
+      border-radius: 8px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px 20px;
+      font-size: 16px;
+      background-color: #ffaf00;
+      color: black;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎥 Visitante enviando câmera</h1>
+  <video id="localVideo" autoplay muted playsinline></video>
+  <button id="iniciarBtn">Iniciar transmissão</button>
+
+  <script src="https://lemurrtc.onrender.com/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('https://lemurrtc.onrender.com');
+    const iniciarBtn = document.getElementById('iniciarBtn');
+    const localVideo = document.getElementById('localVideo');
+    let localStream;
+    let peerConnection;
+
+    const config = {
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    };
+
+    iniciarBtn.onclick = () => {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+          localVideo.srcObject = stream;
+          localStream = stream;
+
+          peerConnection = new RTCPeerConnection(config);
+
+          stream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, stream);
+          });
+
+          peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+              socket.emit('visu-ice', event.candidate);
+            }
+          };
+
+          peerConnection.createOffer()
+            .then(offer => peerConnection.setLocalDescription(offer))
+            .then(() => {
+              socket.emit('visu-offer', peerConnection.localDescription);
+            });
+        })
+        .catch(error => {
+          console.error('Erro ao acessar câmera:', error);
+        });
+    };
+
+    socket.on('visu-answer', answer => {
+      peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    socket.on('visu-ice', candidate => {
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+  </script>
+</body>
+</html>
